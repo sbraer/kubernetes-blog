@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+spec:
+  selector:
+    matchLabels:
+      app: mongodbservice # has to match .spec.template.metadata.labels
+  serviceName: "mongodbservice"
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: mongodbservice # has to match .spec.selector.matchLabels
+    spec:
+      volumes:
+      - name: secretvolume
+        secret:
+          secretName: mysecret
+      containers:
+      - name: mongodbservice
+        image: mongo:4.2.1
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        volumeMounts:
+        - name: secretvolume
+          readOnly: true
+          mountPath: "/etc/secret-volume"
+        args:
+        - mongod
+        - --port=27017
+        - --bind_ip=0.0.0.0
+        - --replSet=replicaTest
+        - --keyFile=/etc/secret-volume/keyfile
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME_FILE
+          value: /etc/secret-volume/username
+        - name: MONGO_INITDB_ROOT_PASSWORD_FILE
+          value: /etc/secret-volume/password
+    

@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodb1
+  labels:
+    app: mongodbtest1 # label for selector
+spec:
+   containers:
+   - name: mongodbistance
+     image: mongo:4.2.1
+     imagePullPolicy: IfNotPresent
+     ports:
+      - containerPort: 27017
+        protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodbservice
+spec:
+  selector:
+    app: mongodbtest1
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodb2
+  labels:
+    app: mongodbtest2 # label for selector
+spec:
+   containers:
+   - name: mongodbistance2
+     image: mongo:4.2.1
+     imagePullPolicy: IfNotPresent
+     ports:
+      - containerPort: 27017
+        protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: access-nginx
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodbtest1
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          access: "true"
+
+# mongo --host mongodbservice

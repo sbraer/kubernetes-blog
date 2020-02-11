@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodbtest
+  labels:
+    app: mongodbtestapp # label for selector
+spec:
+   containers:
+   - name: mongodbtest
+     image: sbraer/mongodbtest:v1
+     imagePullPolicy: IfNotPresent
+     ports:
+      - containerPort: 5000
+        protocol: TCP
