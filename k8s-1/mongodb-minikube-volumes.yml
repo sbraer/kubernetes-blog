@@ -1,0 +1,258 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret3
+type: Opaque
+data:
+  username: bW9uZ291c2Vy
+  password: bXljb21wbGV4cGFzc3dvcmQ=
+  keyfile: ZXhhbXBsZTEyMzQ1Ng==
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: showdb
+spec:
+  selector:
+    app: showdb
+  ports:
+  - protocol: TCP
+    port: 5002
+    targetPort: 8081
+    nodePort: 30164
+  type: NodePort
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testdb
+spec:
+  selector:
+    app: testdb
+  ports:
+  - protocol: TCP
+    port: 5000
+    targetPort: 5000
+    nodePort: 30163
+  type: NodePort
+        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodbservice
+  labels:
+    app: mongodbservice
+spec:
+  ports:
+  - port: 27017
+    name: mongodb
+  clusterIP: None
+  selector:
+    app: mongodbservice
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+spec:
+  selector:
+    matchLabels:
+      app: mongodbservice # has to match .spec.template.metadata.labels
+  serviceName: "mongodbservice"
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: mongodbservice # has to match .spec.selector.matchLabels
+    spec:
+      volumes:
+      - name: secretvolume
+        secret:
+          secretName: mysecret3
+      - name: workdir
+        emptyDir:
+          medium: Memory
+      - name: datadir
+        emptyDir: {}
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: mongodbservice
+        image: mongo:4.2.1
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        args:
+        - mongod
+        - --port=27017
+        - --bind_ip=0.0.0.0
+        - --replSet=replicaTest
+        - --keyFile=/tmp/secrets/keyfile
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME_FILE
+          value: /tmp/secrets/username
+        - name: MONGO_INITDB_ROOT_PASSWORD_FILE
+          value: /tmp/secrets/password
+        volumeMounts:
+        - name: workdir
+          mountPath: /tmp/secrets
+        - name: mongo-persistent-storage #datadir
+          mountPath: /data/db
+      # These containers are run during pod initialization
+      initContainers:
+      - name: install
+        image: busybox:1.31.1
+        command: ["/bin/sh", "-c"]
+        args: 
+        - cp /etc/secret-volume/keyfile /work-dir;
+          chmod 0600 /work-dir/keyfile;
+          chown 999:999 /work-dir/keyfile;
+          cp /etc/secret-volume/username /work-dir;
+          cp /etc/secret-volume/password /work-dir;
+        volumeMounts:
+        - name: workdir
+          mountPath: "/work-dir"
+        - name: secretvolume
+          readOnly: true
+          mountPath: "/etc/secret-volume"
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-persistent-storage
+        annotations:
+          volume.beta.kubernetes.io/storage-class: "fast"
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodbreplicaset
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+  template:
+    spec:
+      volumes:
+      - name: secretvolumexxx
+        secret:
+          secretName: mysecret3
+      containers:
+      - name: mongodbreplicaset
+        image: sbraer/mongoreplicaset:v2
+        imagePullPolicy: IfNotPresent #Always
+        volumeMounts:
+        - name: secretvolumexxx
+          readOnly: true
+          mountPath: /etc/secretvolume
+        env:
+        - name: replicasetname
+          value: replicaTest
+        - name: MONGODB_CLUSTER_LIST
+          value: 'mongodb-0.mongodbservice mongodb-1.mongodbservice mongodb-2.mongodbservice'
+        - name: MONGODB_USERNAME_FILE
+          value: /etc/secretvolume/username
+        - name: MONGODB_PASSWORD_FILE
+          value: /etc/secretvolume/password
+      restartPolicy: Never
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: showdb
+  labels:
+    app: showdb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: showdb
+  template:
+    metadata:
+      labels:
+        app: showdb
+    spec:
+      volumes:
+      - name: secretvolume
+        secret:
+          secretName: mysecret3
+      containers:
+      - name: showdb
+        image: mkucuk20/mongo-express
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ME_CONFIG_MONGODB_ADMINUSERNAME_FILE
+          value: /etc/secretvolume/username
+        - name: ME_CONFIG_MONGODB_ADMINPASSWORD_FILE
+          value: /etc/secretvolume/password
+        - name: ME_CONFIG_MONGODB_SERVER
+          value: mongodb-0.mongodbservice,mongodb-1.mongodbservice,mongodb-2.mongodbservice
+        volumeMounts:
+        - name: secretvolume
+          readOnly: true
+          mountPath: '/etc/secretvolume'
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testdb
+  labels:
+    app: testdb
+spec:
+  selector:
+    matchLabels:
+      app: testdb
+  template:
+    metadata:
+      labels:
+        app: testdb
+    spec:
+      volumes:
+      - name: secretvolume
+        secret:
+          secretName: mysecret3
+      containers:
+      - name: testdb
+        image: sbraer/mongodbtest:v1
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        env:
+        - name: MONGODB_SERVER_USERNAME_FILE
+          value: /etc/secretvolume/username
+        - name: MONGODB_SERVER_PASSWORD_FILE
+          value: /etc/secretvolume/password
+        - name: MONGODB_SERVER_LIST
+          value: mongodb-0.mongodbservice,mongodb-1.mongodbservice,mongodb-2.mongodbservice
+        - name: MONGODB_REPLICA_SET
+          value: replicaTest
+        - name: MONGODB_DATABASE_NAME
+          value: MyDatabase
+        - name: MONGODB_BOOKS_COLLECTION_NAME
+          value: MyTest
+        volumeMounts:
+        - name: secretvolume
+          readOnly: true
+          mountPath: '/etc/secretvolume'
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  namespace: kube-system
+  name: fast
+  annotations:
+    storageclass.beta.kubernetes.io/is-default-class: "true"
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+
+provisioner: k8s.io/minikube-hostpath

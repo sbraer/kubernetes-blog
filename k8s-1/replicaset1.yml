@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: myreplicaset1
+  labels:
+    app: mongodbtestrs
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      mylabel: test1 # selector reference
+  template:
+    metadata:
+      labels:
+        mylabel: test1 # selected
+    spec:
+      containers:
+      - name: mongodbtest
+        image: sbraer/mongodbtest:v1
+        ports:
+        - containerPort: 5000
