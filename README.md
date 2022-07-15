@@ -7,3 +7,7 @@ https://blogs.aspitalia.com/az/
 ## Kubernetes, AWS, Terraform, Domain e TLS:
 
 [Source code](https://github.com/sbraer/kubernetes-blog/tree/master/k8s-2)
+
+## AWS, EKS, OIDC:
+
+[Source code](https://github.com/sbraer/kubernetes-blog/tree/master/k8s-3)
