@@ -6,15 +6,14 @@ Configure AWS:
 aws configure
 ```
 
-To install:
+Create EKS and install Fluent Bit:
 ```
-cd .\terraform_eks
+aws configure
 terraform init
 terraform plan
 terraform apply -auto-approve
-```
+
 To remove:
-```
 terraform destroy -auto-approve
 ```
 
@@ -23,8 +22,14 @@ Get local Kubernetes authentication:
 aws eks --region eu-south-1 update-kubeconfig --name K8sDemo-blog-service-account
 ```
 
-Test pod with IAM role:
+Install pod to test Fluent Bit:
 ```
-kubectl exec tests3 -- aws s3api list-buckets
-kubectl exec testvpc -- aws ec2 describe-vpcs
+kubectl apply -f nginx.yaml
+```
+
+To test nginx with local browser:
+```
+kubectl get po
+kubectl port-forward pod/{name pod from previous command} 8080:80
+curl localhost:8080
 ```

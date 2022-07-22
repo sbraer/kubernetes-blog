@@ -1,6 +1,11 @@
 # Test code for my blog:
 https://blogs.aspitalia.com/az/
 
+Configure AWS:
+```
+aws configure
+```
+
 ## First Step
 ```
 cd .\terraform_eks

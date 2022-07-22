@@ -11,3 +11,7 @@ https://blogs.aspitalia.com/az/
 ## AWS, EKS, OIDC:
 
 [Source code](https://github.com/sbraer/kubernetes-blog/tree/master/k8s-3)
+
+## AWS, EKS, Fluent Bit
+
+[Source code](https://github.com/sbraer/kubernetes-blog/tree/master/k8s-4)
